@@ -1,0 +1,305 @@
+.ezfc * {
+	box-sizing: border-box;
+}
+
+.ezfc-box {
+	margin: 5px;
+	padding: 5px;
+	display: inline-block;
+	vertical-align: top;
+}
+
+.ezfc-box .ezfc-box {
+	padding: 0 20px 0 0;
+}
+
+.nomargin {
+	margin: 0;
+}
+.clone {
+	display: none !important;
+}
+.ezfc .ezfc-hidden {
+	display: none;
+}
+.text-right {
+	text-align: right;
+}
+.pull-right {
+	float: right;
+}
+
+/**
+	typography
+**/
+.ezfc .fa {
+	font-size: 1.1em;
+}
+.ezfc-message {
+	display: none;
+	font-size: 1.3em;
+}
+.ezfc-message.ezfc-error {
+	color: #d00;
+}
+
+
+/**
+	inline list
+**/
+.ezfc-inline-list ul li {
+	display: inline-block;
+	border-radius: 5px;
+	margin-right: 5px;
+}
+.ezfc-inline-list li a {
+	display: inline-block;
+	width: 100%;
+	height: 100%;
+	text-decoration: none;
+}
+.ezfc-inline-list-autowidth li a {
+	width: auto;
+}
+
+/**
+	forms list
+**/
+.ezfc .ezfc-form, .ezfc .ezfc-template-list li {
+	display: block;
+	margin: 0 0 10px;
+	overflow: hidden;
+}
+
+/**
+	option bar
+**/
+.ezfc-options {
+	display: none;
+}
+.ezfc-options-schedule {
+	display: none;
+}
+.ezfc-options-schedule th {
+	padding: 5px 20px 0 0;
+	text-align: left;
+	vertical-align: top;
+}
+
+
+/**
+	form element list
+**/
+.ezfc-elements-show {
+	min-width: 350px;
+}
+.ezfc-element {
+	width: 33%;
+	margin-bottom: 0.2em !important;
+}
+
+.ezfc-form-options li.button {
+	margin-right: 5px;
+	margin-bottom: 5px;
+	width: 145px;
+}
+
+.ezfc-form-elements {
+	list-style: none;
+}
+
+.ezfc-form-element, .ezfc-form-submission {
+	background: #eee;
+	border: #ddd 1px solid;
+	border-left: #999 1px dashed;
+	box-shadow: #eee 1px 1px 3px;
+}
+.ezfc .ezfc-form-element-delete, .ezfc .ezfc-form-submission-delete, .ezfc .ezfc-form-file-delete {
+	float: right;
+	margin-top: -5px;
+	padding: 0 5px;
+	color: #E73030;
+}
+
+.ezfc-form-element-name, .ezfc-form-submission-name {
+	border-bottom: #ccc 1px solid;
+	padding: 10px;
+}
+.ezfc-form-element-name:hover, .ezfc-form-submission-name:hover {
+	background: #fafafa;
+	cursor: pointer;
+}
+
+.ezfc-form-element-calculate-target {
+	max-width: 240px;
+}
+
+
+.ezfc-form-files ul, .ezfc-form-files p {
+	padding: 5px;
+}
+
+.ezfc-form-element-data {
+	background: #f4f4f4;
+	display: none;
+	padding: 5px 10px;
+}
+.ezfc-form-element-data input[type="text"] {
+	width: 240px;
+}
+@media (max-width: 1199px) {
+	.ezfc-form-element-data input[type="text"] {
+	width: 130px;
+	}	
+}
+.ezfc-form-element-data input.small {
+	width: 130px;
+}
+.ezfc-form-element-data input.ezfc-form-element-option-radio {
+	width: auto;
+	display: inline-block;
+}
+.ezfc-form-element-required-char {
+	color: #f00;
+}
+
+.ezfc-image-preview {
+	max-width: 100%;
+}
+
+.ezfc table {
+	width: 100%;
+}
+.ezfc table th {
+	width: 100px;
+}
+.ezfc .ezfc-form-element-data textarea {
+	width: 100%;
+	height: 80px;
+}
+
+/**
+	jquery ui
+**/
+.ui-state-highlight {
+	background: #fafafa;
+	border: #ccc 2px dashed;
+	height: 37px;
+}
+
+.pricing-table {
+	display: inline-block;
+	width: 300px;
+	margin: 20px 20px 0 0;
+    -moz-box-shadow: 0 2px 5px 0 rgba(0,0,0,.2);
+    -webkit-box-shadow: 0 2px 5px 0 rgba(0,0,0,.2);
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,.2);
+}
+.pricing-table-tiny {
+	border-bottom:10px solid #14937a;
+}
+.pricing-table-pro {
+	border-bottom:10px solid #2980b9;
+}
+.pricing-table strong { font-weight: 700; color: #3d3d3d; }
+
+.pricing-table-header-tiny {
+    padding: 5px 0 5px 0;
+    background: #16a085;
+    border:1px solid #14937a;
+	border-bottom:10px solid #14937a;
+	text-align: center;
+}
+.pricing-table-header-pro {
+    padding: 5px 0 5px 0;
+    background: #2980b9;
+    border:1px solid #2980b9;
+	border-bottom:10px solid #2672A5;
+	text-align: center;
+}
+
+.pricing-table-header-tiny h2, .pricing-table-header-small h2, .pricing-table-header-medium h2, .pricing-table-header-pro h2 {  font-weight: 700; color:#FFF; }
+.pricing-table-header-tiny h3, .pricing-table-header-small h3, .pricing-table-header-medium h3, .pricing-table-header-pro h3 { font-weight: 500; color:#FFF;  }
+
+
+.pricing-table-text {
+    margin: 15px 30px 0 30px;
+    padding: 0 10px 15px 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    line-height: 30px;
+    font-size: 16px;
+    color: #888;
+}
+
+.pricing-table-features {
+    margin: 15px 10px 0 10px;
+    padding: 0 10px 15px 10px;
+    border-bottom: 1px dashed #888;
+    text-align: center;
+    line-height: 20px;
+    font-size: 14px;
+    color: #888;
+}
+.pricing-table-features-pro {
+    margin: 15px 10px 0 10px;
+    padding: 0 10px 15px 10px;
+    border-bottom: 1px dashed #888;
+    text-align: center;
+    line-height: 20px;
+    font-size: 14px;
+    color: #888;
+}
+
+.pricing-table-signup-tiny {
+    margin-top: 25px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+.pricing-table-signup-tiny a {
+    display: inline-block;
+    height: 50px;
+    background: #16a085;
+    line-height: 50px;
+    padding: 2px 30px;
+    
+    color: #fff;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.pricing-table-signup-pro {
+    margin-top: 25px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+.pricing-table-signup-pro a {
+    display: inline-block;
+    height: 50px;
+    background: #2980b9;
+    line-height: 50px;
+    padding: 2px 30px;
+    
+    color: #fff;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.pricing-table-signup-tiny a:hover {
+    text-decoration: none;
+    background: #14937a;
+	color: #fff;
+}
+.pricing-table-signup-pro a:hover {
+    text-decoration: none;
+    background: #2672A5;
+	color: #fff;
+}
+
+.ezfc-premium-info {
+	background: #FFFBDB;
+	padding: 10px;
+	font-weight: bold;
+}
