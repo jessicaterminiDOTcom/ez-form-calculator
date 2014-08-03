@@ -1,4 +1,4 @@
-=== EZ Form Calculator ===
+﻿=== EZ Form Calculator ===
 Contributors: keksdieb
 Donate link: http://www.mials.de/mials/ezfc/
 Tags: calculator, customer, form, generator, marketing, form builder, form generator, price calculator, price
@@ -49,8 +49,9 @@ More documentation at http://www.mials.de/mials/ezfc/documentation/
 No FAQs so far
 
 == Screenshots ==
-1. Backend form
-2. Email notification (premium only)
+1. Frontend form
+2. Backend form
+3. Email notification (premium only)
 
 == Changelog ==
 
