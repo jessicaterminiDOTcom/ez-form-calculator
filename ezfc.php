@@ -3,7 +3,7 @@
 Plugin Name: ez Form Calculator Free
 Plugin URI: http://www.mials.de/mials/ezfc/
 Description: With ez Form Calculator, you can simply create a form calculator for both yourself and your customers. Easily add basic form elements like checkboxes, dropdown menus, radio buttons etc. with only a few clicks. Each form element can be assigned a value which will automatically be calculated. Get the premium version at <a href="http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb">CodeCanyon</a>.
-Version: 1.3
+Version: 1.31
 Author: Michael Schuppenies
 Author URI: http://www.mials.de/
 */
@@ -27,7 +27,7 @@ register_uninstall_hook(__FILE__, "ezfc_uninstall");
 **/
 // version
 function ezfc_get_version() {
-	return "1.3";
+	return "1.31";
 }
 // register plugin
 function ezfc_register() {
@@ -96,8 +96,7 @@ function ezfc_load_scripts($end="frontend") {
 		wp_enqueue_script("jquery-ui-sortable");
 		wp_enqueue_script("jquerytimepicker", plugins_url("assets/js/jquery.timepicker.min.js", __FILE__));
 		wp_enqueue_script("thickbox");
-		//wp_enqueue_script("ezfc-backend", plugins_url("backend.min.js", __FILE__));
-		wp_enqueue_script("ezfc-backend", plugins_url("backend.js", __FILE__));
+		wp_enqueue_script("ezfc-backend", plugins_url("backend.min.js", __FILE__));
 
 		wp_localize_script("ezfc-backend", "ezfc_vars", array(
 			"delete" => __("Delete", "ezfc"),
