@@ -22,8 +22,15 @@ $options = array(
 	"css_form_label_width",
 	"captcha_public",
 	"captcha_private",
+	"debug_mode",
+	"edit_role",
 	"jquery_ui",
+	"mailchimp_api_key",
 	"price_format",
+	"required_text",
+	"woocommerce",
+	"woocommerce_text",
+	"woocommerce_product_id",
 	"uninstall_keep_data",
 	"version"
 );

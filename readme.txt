@@ -1,10 +1,10 @@
-=== EZ Form Calculator ===
+﻿=== EZ Form Calculator ===
 Contributors: keksdieb
 Donate link: http://www.mials.de/mials/ezfc/
 Tags: calculator, customer, form, generator, marketing, form builder, form generator, price calculator, price
-Requires at least: 3.6
-Tested up to: 3.9.1
-Stable tag: 3.9.1
+Requires at least: 3.9
+Tested up to: 4.1
+Stable tag: 4.0.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,18 +16,28 @@ ez Form Calculator is a WordPress premium form-generating plugin. You can simply
 
 = Live Demo= 
 [Frontend](http://www.mials.de/mials/ezfc/)
-[Backend](http://www.mials.de/mials/ezfc/wp-admin)
-Username: demo
-Password: demo
 
-= Features =
+= Demo Features =
 * Generate basic forms with values
 * Plugin automatically calculates form values
 * Easily add form elements with just one click
+* 4 form elements
 * Drag and drop elements to change their positions
 * Backend verification for increased security
 * Translation ready (e.g. WPML)
-* New: File upload integration (premium only)
+
+= Premium Features =
+* Unlimited Forms for one site
+* 17 different Elements
+* Unlimited Elements per form
+* Unlimited file uploads
+* 9 predefined templates (and counting)
+* No watermarks
+* PayPal integration
+* WooCommerce integration
+* Mailchimp integration
+* Email support
+* ... and many more features!
 
 = A few examples =
 * Media agencies: customers can submit their needs (like logo creation, websites etc.) directly.
@@ -53,6 +63,9 @@ No FAQs so far
 2. Email notification (premium only)
 
 == Changelog ==
+
+= 2.0 =
+* Huge update with lots of bugfixes
 
 = 1.0 =
 * Initial version

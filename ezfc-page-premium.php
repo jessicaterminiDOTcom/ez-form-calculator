@@ -32,17 +32,25 @@ defined( 'ABSPATH' ) OR exit;
 	</div>
 	<div class="pricing-table-features-pro">
 	    <p><strong>Unlimited</strong> Forms for one site</p>
-	    <p><strong>14</strong> different Elements</p>
+	    <p><strong>17</strong> different Elements</p>
 	    <p><strong>Unlimited</strong> Elements per form</p>
 	    <p><strong>Unlimited</strong> file uploads</p>
-	    <p><strong>4</strong> predefined templates (and counting)</p>
+	    <p><strong>9</strong> predefined templates (and counting)</p>
 	    <p><strong>No</strong> watermarks</p>
+	    <p><strong>PayPal</strong> integration</p>
+	    <p><strong>WooCommerce</strong> integration</p>
+	    <p><strong>Mailchimp</strong> integration</p>
 	    <p><strong>Email</strong> support</p>
+	    <p>... and many more features!</p>
 	</div>
 	<div class="pricing-table-signup-pro">
-	  <p><a href="http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb" target="_blank">$15 / license</a></p>
+	  <p><a href="http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb" target="_blank">$20 / license<small>*</small></a></p>
 	</div>
 </div>
+
+<p>
+	<small>* purchase from codecanyon.net - price as of 12/16/14</small>
+</p>
 
 <div style="margin-top: 20px;"></div>
 <iframe width="640" height="360" src="//www.youtube.com/embed/StMfEaaZ208?rel=0" frameborder="0" allowfullscreen></iframe>

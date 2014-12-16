@@ -86,8 +86,22 @@ function _recaptcha_http_post($host, $path, $data, $port = 443) {
         while ( !feof($fs) )
                 $response .= fgets($fs, 1160); // One TCP-IP packet
         fclose($fs);
+
         $response = explode("\r\n\r\n", $response, 2);
 
+        return $response;
+}
+
+function _recaptcha_http_post_curl($host, $path, $data, $port = 80) {
+        $req = _recaptcha_qsencode ($data);
+        $request = curl_init("http://".$host.$path);
+
+        curl_setopt($request, CURLOPT_USERAGENT, "reCAPTCHA/PHP");
+        curl_setopt($request, CURLOPT_POST, true);
+        curl_setopt($request, CURLOPT_POSTFIELDS, $req);
+        curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($request);
         return $response;
 }
 
@@ -169,7 +183,7 @@ function recaptcha_check_answer ($privkey, $remoteip, $challenge, $response, $ex
                 return $recaptcha_response;
         }
 
-        $response = _recaptcha_http_post (RECAPTCHA_VERIFY_SERVER, "/recaptcha/api/verify",
+        $response = _recaptcha_http_post_curl (RECAPTCHA_VERIFY_SERVER, "/recaptcha/api/verify",
                                           array (
                                                  'privatekey' => $privkey,
                                                  'remoteip' => $remoteip,
@@ -178,7 +192,14 @@ function recaptcha_check_answer ($privkey, $remoteip, $challenge, $response, $ex
                                                  ) + $extra_params
                                           );
 
-        $answers = explode ("\n", $response [1]);
+        // modified
+        if (!is_array($response)) {
+          $answers = explode("\n", $response);
+        }
+        else {
+          $answers = explode ("\n", $response [1]);
+        }
+
         $recaptcha_response = new ReCaptchaResponse();
 
         if (trim ($answers [0]) == 'true') {
@@ -186,7 +207,7 @@ function recaptcha_check_answer ($privkey, $remoteip, $challenge, $response, $ex
         }
         else {
                 $recaptcha_response->is_valid = false;
-                $recaptcha_response->error = $answers [1];
+                $recaptcha_response->error = $response[1];
         }
         return $recaptcha_response;
 
