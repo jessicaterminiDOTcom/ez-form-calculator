@@ -8,14 +8,15 @@ require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 global $wpdb;
 
 $tables = array(
-	"{$wpdb->prefix}ezfcf_elements",
-	"{$wpdb->prefix}ezfcf_files",
-	"{$wpdb->prefix}ezfcf_forms",
-	"{$wpdb->prefix}ezfcf_forms_elements",
-	"{$wpdb->prefix}ezfcf_forms_options",
-	"{$wpdb->prefix}ezfcf_options",
-	"{$wpdb->prefix}ezfcf_submissions",
-	"{$wpdb->prefix}ezfcf_templates"
+	"{$wpdb->prefix}ezfc_elements",
+	"{$wpdb->prefix}ezfc_files",
+	"{$wpdb->prefix}ezfc_forms",
+	"{$wpdb->prefix}ezfc_forms_elements",
+	"{$wpdb->prefix}ezfc_forms_options",
+	"{$wpdb->prefix}ezfc_options",
+	"{$wpdb->prefix}ezfc_submissions",
+	"{$wpdb->prefix}ezfc_templates",
+	"{$wpdb->prefix}ezfc_themes"
 );
 
 $options = array(

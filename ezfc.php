@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: ez Form Calculator Free
-Plugin URI: http://www.mials.de/mials/ezfc/ 
+Plugin URI: http://www.mials.de/mials/ezfc/
 Description: With ez Form Calculator, you can simply create a form calculator for both yourself and your customers. Easily add basic form elements like checkboxes, dropdown menus, radio buttons etc. with only a few clicks. Each form element can be assigned a value which will automatically be calculated. Get the premium version at <a href="http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb">
 Version: 2.0
 Author: Michael Schuppenies
@@ -25,6 +25,14 @@ add_action("admin_print_scripts", "ezfc_tinymce_script");
 if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
     require_once( ABSPATH . '/wp-admin/includes/plugin.php' );
 }
+// woocommerce check
+if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins'))) ||
+	is_plugin_active_for_network('woocommerce/woocommerce.php')) {
+    add_action('woocommerce_before_calculate_totals', 'ezfc_add_custom_price' );
+}
+
+// functions
+require_once(plugin_dir_path(__FILE__) . "class.ez_functions.php");
 
 // hooks
 register_activation_hook(__FILE__, "ezfc_register");
@@ -41,14 +49,14 @@ function ezfc_get_version() {
 	install
 **/
 function ezfc_register() {
-	require_once("ezfc-register.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-register.php");
 }
 
 /**
 	uninstall
 **/
 function ezfc_uninstall() {
-	require_once("ezfc-uninstall.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-uninstall.php");
 }
 
 /**
@@ -74,37 +82,37 @@ function ezfc_setup() {
 
 function ezfc_page_main() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-main.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-main.php");
 }
 
 function ezfc_page_settings_form() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-settings-form.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-settings-form.php");
 }
 
 function ezfc_page_settings() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-settings.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-settings.php");
 }
 
 function ezfc_page_importexport() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-importexport.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-importexport.php");
 }
 
 function ezfc_page_templates() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-templates.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-templates.php");
 }
 
 function ezfc_page_help() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-help.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-help.php");
 }
 
 function ezfc_page_premium() {
 	ezfc_load_scripts("backend");
-	require_once("ezfc-page-premium.php");
+	require_once(plugin_dir_path(__FILE__) . "ezfc-page-premium.php");
 }
 
 /**
@@ -126,7 +134,7 @@ function ezfc_tinymce_script() {
     if( ! in_array( $typenow, array( 'post', 'page' ) ) )
         return;
 
-	require_once("class.ezfc_backend.php");
+	require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
     $ezfc_backend = new Ezfc_backend();
 
     echo "<script>ezfc_forms = " . json_encode($ezfc_backend->forms_get()) . ";</script>";
@@ -175,8 +183,9 @@ function ezfc_load_scripts($end="frontend") {
 		wp_enqueue_script("jquery-ui-tabs");
 		wp_enqueue_script("jquery-opentip", plugins_url("assets/js/opentip-jquery.min.js", __FILE__));
 		wp_enqueue_script("jquerytimepicker", plugins_url("assets/js/jquery.timepicker.min.js", __FILE__));
+		wp_enqueue_script("jquery-nestedsortable", plugins_url("assets/js/jquery.mjs.nestedSortable.js", __FILE__));
 		wp_enqueue_script("thickbox");
-		wp_enqueue_script("ezfc-backend", plugins_url("backend.min.js", __FILE__), array(), ezfc_get_version());
+		wp_enqueue_script("ezfc-backend", plugins_url("backend.js", __FILE__), array(), ezfc_get_version());
 
 		wp_localize_script("ezfc-backend", "ezfc_vars", array(
 			"delete" => __("Delete", "ezfc"),
@@ -215,6 +224,7 @@ function ezfc_load_scripts($end="frontend") {
 		wp_enqueue_script("jquery-ui-slider");
 		wp_enqueue_script("jquery-ui-spinner");
 		wp_enqueue_script("jquery-ui-widget");
+		wp_enqueue_script("jquery-touch-punch", plugins_url("assets/js/jquery.ui.touch-punch.min.js", __FILE__));
 		wp_enqueue_script("jquery-opentip", plugins_url("assets/js/opentip-jquery.min.js", __FILE__));
 		wp_enqueue_script("numeraljs", plugins_url("assets/js/numeral.min.js", __FILE__));
 		wp_enqueue_script("jquery-file-upload", plugins_url("assets/js/jquery.fileupload.min.js", __FILE__));
@@ -242,19 +252,18 @@ function ezfc_load_scripts($end="frontend") {
 	ajax
 **/
 function ezfc_ajax_frontend() {
-	require_once(plugin_dir_path(__FILE__)."ajax.php");
+	require_once(plugin_dir_path(__FILE__) . "ajax.php");
 }
 
 // backend
 function ezfc_ajax() {
-	require_once("ajax-admin.php");
+	require_once(plugin_dir_path(__FILE__) . "ajax-admin.php");
 }
 
 function ezfc_wp_head() {
 	?>
 		<script type="text/javascript">
 		ezfc_ajaxurl = "<?php echo admin_url( 'admin-ajax.php' ); ?>";
-		ezfc_ajaxurl_fileupload = "<?php echo plugins_url('ajax-fileupload.php', __FILE__); ?>";
 		ezfc_form_vars = [];
 		</script>
 	<?php
@@ -303,6 +312,43 @@ class Ezfc_shortcode {
 }
 Ezfc_shortcode::init();
 
+// paypal verify shortcode
+function ezfc_shortcode_paypal_verify($atts, $content = null) {
+	session_start();
+
+	require_once(plugin_dir_path(__FILE__)."class.ezfc_frontend.php");
+	require_once(plugin_dir_path(__FILE__)."lib/paypal/expresscheckout.php");
+
+	if (!isset($_GET["PayerID"])) return __("No PayerID.", "ezfc");
+
+	// verify paypal payment
+	$_SESSION["payer_id"] = $_REQUEST["PayerID"];
+	$confirmation = Ezfc_paypal::confirm();
+
+	// no payment
+	if (!$confirmation || isset($confirmation["error"])) {
+		return __("Payment could not be verified. :(", "ezfc");
+	}
+
+	// user paid $$$ --> update submission
+	$ezfc    = new Ezfc_frontend();
+	$update  = $ezfc->update_submission_paypal($_REQUEST["token"], $confirmation["transaction_id"]);
+
+	if (!$update || isset($update["error"])) return __($update["error"], "ezfc");
+
+	// get form options
+	$options = $ezfc->array_index_key($ezfc->form_get_options($update["submission"]->f_id), "name");
+
+	// prepare submission data for mails
+	$ezfc->prepare_submission_data($update["submission"]->f_id, json_decode($update["submission"]->data));
+	// send mails
+	$ezfc->send_mails($update["submission"]->id);
+
+	return __($options["pp_paid_text"]->value, "ezfc");
+}
+add_shortcode("ezfc_verify", "ezfc_shortcode_paypal_verify");
+
+
 /**
 	woocommerce
 **/
@@ -324,23 +370,55 @@ function ezfc_woo_setup($force=false) {
 	
 	if (ezfc_woo_product_exists() && !$force) return array("error" => "Product already exists.");
 
-    return array("error" => "Not available in demo.");
+    // add placeholder post
+    $post = array(
+        'post_content'   => "",
+        'post_name'      => "ezfc-product-placeholder",
+        'post_title'     => "ez Form Calculator Product Placeholder",
+        'post_status'    => "publish",
+        'post_type'      => "product"
+    );
+
+    $product_id = wp_insert_post($post);
+
+    update_option("ezfc_woocommerce_product_id", $product_id);
+
+    update_post_meta($product_id, '_visibility', 'hidden' );
+    update_post_meta($product_id, '_stock_status', 'instock');
+    update_post_meta($product_id, 'total_sales', '0');
+    update_post_meta($product_id, '_downloadable', 'no');
+    update_post_meta($product_id, '_virtual', 'yes');
+    update_post_meta($product_id, '_regular_price', "0" );
+    update_post_meta($product_id, '_sale_price', "" );
+    update_post_meta($product_id, '_purchase_note', "" );
+    update_post_meta($product_id, '_featured', "no" );
+    update_post_meta($product_id, '_weight', "" );
+    update_post_meta($product_id, '_length', "" );
+    update_post_meta($product_id, '_width', "" );
+    update_post_meta($product_id, '_height', "" );
+    update_post_meta($product_id, '_sku', "");
+    update_post_meta($product_id, '_product_attributes', array());
+    update_post_meta($product_id, '_sale_price_dates_from', "" );
+    update_post_meta($product_id, '_sale_price_dates_to', "" );
+    update_post_meta($product_id, '_price', "0" );
+    update_post_meta($product_id, '_sold_individually', "" );
+    update_post_meta($product_id, '_manage_stock', "no" );
+    update_post_meta($product_id, '_backorders', "no" );
+    update_post_meta($product_id, '_stock', "" );
+
+    return array("success" => true);
 }
 
 function ezfc_woo_product_exists() {
-	$product_exists = get_posts(array(
-        "post_title"  => "ez Form Calculator Product Placeholder",
-        "post_status" => "publish",
-        "post_type"   => "product"
-    ));
+	$product_exists = get_post(get_option("ezfc_woocommerce_product_id"));
 
-    return count($product_exists) > 0;
+    return $product_exists ? true : false;
 }
 
 function ezfc_add_custom_price( $cart_object ) {
 	global $woocommerce;
 
-    require_once("class.ezfc_backend.php");
+    require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
     $ezfc = new Ezfc_backend();
 
     $target_product_id = get_option("ezfc_woocommerce_product_id");
@@ -354,11 +432,11 @@ function ezfc_add_custom_price( $cart_object ) {
             $ezfc_submission = $ezfc->get_submission($ezfc_id);
 			
 			// change price
-            $value["data"]->set_price($ezfc_submission->total);
+			$value["data"]->set_price($ezfc_submission->total);
 
             // change title
-            $ezfc_form = $ezfc->form_get($ezfc_submission->f_id);
-            $value["data"]->post->post_title = $ezfc_form->name;
+            //$ezfc_form = $ezfc->form_get($ezfc_submission->f_id);
+            //$value["data"]->post->post_title = $ezfc_form->name;
         }
     }
 }

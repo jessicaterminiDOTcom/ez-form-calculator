@@ -2,8 +2,6 @@
 
 defined( 'ABSPATH' ) OR exit;
 
-global $wpdb;
-
 if (isset($_POST["ezfc-reset"])) {
 	$keep_data_option = get_option("ezfc_uninstall_keep_data", 0);
 	update_option("ezfc_uninstall_keep_data", 0);
@@ -25,7 +23,7 @@ if (isset($_GET["woo_setup"]) || isset($_REQUEST["ezfc-force-woocommerce"])) {
 	}
 }
 
-require_once("class.ezfc_backend.php");
+require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
 $ezfc = new Ezfc_backend();
 
 if (isset($_POST["submit"])) {
@@ -60,13 +58,26 @@ $settings_alt = array(
 	),
 
 	"Captcha" => array(
-		"captcha_public"         => array("desc" => "Recaptcha public key",  "desc_add" => "", "type" => "input"),
-		"captcha_private"        => array("desc" => "Recaptcha private key", "desc_add" => "", "type" => "input")
+		"captcha_public"  => array("desc" => "Recaptcha public key",  "desc_add" => "", "type" => "input"),
+		"captcha_private" => array("desc" => "Recaptcha private key", "desc_add" => "", "type" => "input")
+	),
+
+	"Email" => array(
+		"email_smtp_enabled" => array("desc" => "Enable SMTP",  "desc_add" => "", "type" => "yesno"),
+		"email_smtp_host"    => array("desc" => "SMTP Host", "desc_add" => "", "type" => "input"),
+		"email_smtp_user"    => array("desc" => "SMTP Username", "desc_add" => "", "type" => "input"),
+		"email_smtp_pass"    => array("desc" => "SMTP Password", "desc_add" => "", "type" => "password"),
+		"email_smtp_port"    => array("desc" => "SMTP Port", "desc_add" => "", "type" => "input"),
+		"email_smtp_secure"  => array("desc" => "SMTP Encryption", "desc_add" => "", "type" => "dropdown", "values" => array(
+			""    => "No encryption",
+			"ssl" => "SSL",
+			"tls" => "TLS"
+		))
 	),
 
 	"PayPal" => array(
 		"pp_api_username"         => array("desc" => "PayPal API username", "desc_add" => "See <a href='https://developer.paypal.com/docs/classic/api/apiCredentials/'>PayPal docs</a> to read how to get your API credentials.", "type" => "input"),
-		"pp_api_password"         => array("desc" => "PayPal API password", "desc_add" => "", "type" => "input"),
+		"pp_api_password"         => array("desc" => "PayPal API password", "desc_add" => "", "type" => "password"),
 		"pp_api_signature"        => array("desc" => "PayPal API signature", "desc_add" => "", "type" => "input"),
 		"pp_return_url"           => array("desc" => "Return URL", "desc_add" => "The return URL is the location where buyers return to when a payment has been succesfully authorized. <br>You need to use this shortcode on the return page/post or else it will not work:<br>[ezfc_verify]", "type" => "input"),
 		"pp_cancel_url"           => array("desc" => "Cancel URL", "desc_add" => "The cancelURL is the location buyers are sent to when they hit the cancel button during authorization of payment during the PayPal flow.", "type" => "input"),
@@ -122,7 +133,6 @@ $settings_alt = array(
 
 		<div class='updated'>
 			<p>Integration was successful! Form submissions can be added to the cart. Check the 'Global settings' page.</p>
-			<p><strong>Note: do not change any option for the product "ez Form Calculator Product Placeholder" in WooCommerce.</strong></p>
 		</div>
 
 		<?php
@@ -165,8 +175,25 @@ $settings_alt = array(
 							    	<td>";
 
 							    switch ($s["type"]) {
+							    	case "dropdown":
+							    		$tmp_input  = "<select id='alt_opt-{$name}' name='alt_opt[ezfc_{$name}]'>";
+
+							    		foreach ($s["values"] as $value => $description) {
+							    			$selected = "";
+							    			if ($tmp_opt == $value) $selected = "selected";
+						    				
+						    				$tmp_input .= "<option value='{$value}' {$selected}>" . __($description, "ezfc") . "</option>";
+						    			}
+
+						    			$tmp_input .= "</select>";
+							    	break;
+
 							    	case "input":
 							    		$tmp_input = "<input type='text' class='regular-text' id='alt_opt-{$name}' name='alt_opt[ezfc_{$name}]' value='{$tmp_opt}' />";
+							    	break;
+
+							    	case "password":
+							    		$tmp_input = "<input type='password' class='regular-text' id='alt_opt-{$name}' name='alt_opt[ezfc_{$name}]' value='{$tmp_opt}' />";
 							    	break;
 
 							    	case "yesno":
@@ -192,7 +219,8 @@ $settings_alt = array(
 
 					    				wp_editor($tmp_opt, "editor_{$i}", array(
 					    					"textarea_name" => "alt_opt[ezfc_{$name}]",
-					    					"textarea_rows" => 5
+					    					"textarea_rows" => 5,
+					    					"teeny"         => true
 					    				));
 					    				$tmp_input = ob_get_contents();
 

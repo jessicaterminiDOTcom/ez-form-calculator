@@ -10,7 +10,7 @@ if (!$query) {
 	die("Error opening file.");
 }
 
-require_once("class.ezfc_backend.php");
+require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
 $ezfc_backend = new Ezfc_backend();
 $ezfc_backend->setup_db();
 
@@ -28,6 +28,7 @@ $ezfc_options = array(
     "captcha_private"        => "",
     "datepicker_language"    => "en",
     "debug_mode"             => 0,
+    "email_smtp_port"        => 25,
     "jquery_ui"              => 1,
     "mailchimp_api_key"      => "",
     "price_format"           => "0,0[.]00",

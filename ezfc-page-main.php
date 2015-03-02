@@ -4,7 +4,7 @@ defined( 'ABSPATH' ) OR exit;
 
 global $wpdb;
 
-require_once("class.ezfc_backend.php");
+require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
 $ezfc = new Ezfc_backend();
 
 $elements     = $ezfc->elements_get();
@@ -36,6 +36,15 @@ function list_elements($elements) {
 	}
 }
 
+// load mailchimp api wrapper
+require_once(plugin_dir_path(__FILE__) . "lib/mailchimp/MailChimp.php");
+$mailchimp_api_key = get_option("ezfc_mailchimp_api_key", -1);
+$mailchimp_lists   = array();
+if (!empty($mailchimp_api_key) && $mailchimp_api_key != -1) {
+	$mailchimp = new Drewm_MailChimp($mailchimp_api_key);
+	$mailchimp_lists = $mailchimp->call("lists/list");
+}
+
 // categorize settings
 $settings_cat = array();
 foreach ($settings as $s) {
@@ -47,17 +56,13 @@ $nonce = wp_create_nonce("ezfc-nonce");
 ?>
 
 <div class="ezfc wrap ezfc-wrapper">
-	<div class="ezfc-error"></div>
-	<div class="ezfc-message"></div>
-
 	<div class="container-fluid">
 		<div class="row">
 			<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
 				<?php echo "<h2>" . __("Overview", "ezfc") . " <span class='spinner'></span></h2>"; ?>
 
-				<?php if (isset($updated)) { ?>
-					<div id="message" class="updated"><?php echo __("Settings saved", "ezfc"); ?>.</div>
-				<?php } ?>
+				<div class="ezfc-error"></div>
+				<div class="ezfc-message"></div>
 			</div>
 		</div>
 

@@ -152,30 +152,43 @@ class Ezfc_frontend {
 			if (strpos($fe_id, "email_check") !== false) continue;
 
 			$el_reference = $elements[$form_element->e_id];
-			// skip recaptcha since it is checked in ajax.php
-			if ($el_reference->type == "recaptcha") continue;
+
+			// skip non-input fields (and recaptcha since it is verified in ajax.php)
+			$skip_check_elements = "image,hr,html,recaptcha,stepstart,stepend";
+			$skip_check_array    = explode(",", $skip_check_elements);
+			if (in_array($el_reference->type, $skip_check_array)) continue;
 
 			// skip if the field was hidden by conditional logic
 			if (isset($data[$fe_id]) && !is_array($data[$fe_id]) && strpos($data[$fe_id], "__HIDDEN__") !== false) continue;
 
 			// checkbox (shouldn't be required, really)
-			if (isset($data[$fe_id]) && is_array($data[$fe_id])) {
-				if (count($data[$fe_id]) < 1) {
+			if (isset($data[$fe_id]) && is_array($data[$fe_id]) && $el_reference->type == "checkbox") {
+				if (Ez_Functions::array_empty($data[$fe_id])) {
 					return $this->send_message("error", __("This field is required.", "ezfc"), $fe_id);
 				}
 			}
 			else {
-				$input_value  = isset($data[$fe_id]) ? trim($data[$fe_id]) : "";
-				$element_data = json_decode($form_element->data);
+				$empty = false;
 
+				if (isset($data[$fe_id])) {
+					$input_value = $data[$fe_id];
+
+					if (is_array($data[$fe_id])) {
+						$empty = Ez_Functions::array_empty($data[$fe_id]);
+					}
+					else {
+						$input_value = trim($data[$fe_id]);
+
+						// check if submitted data string is empty
+						$empty = ((!is_string($input_value) || $input_value == "") && $el_reference->type != "fileupload") ? true : false;
+					}
+				}
 				// no submit data for this element exists -> empty
-				if (!isset($data[$fe_id])) {
+				else {
 					$empty = true;
 				}
-				// check if submitted data string is empty
-				else {
-					$empty = ((!is_string($input_value) || $input_value == "") && $el_reference->type != "fileupload") ? true : false;
-				}
+
+				$element_data = json_decode($form_element->data);
 
 				// check if element is required and no value was submitted
 				if (property_exists($element_data, "required") && (int) $element_data->required == 1 && $empty) {
@@ -185,6 +198,23 @@ class Ezfc_frontend {
 				// run filters
 				if (!$empty) {
 					switch ($el_reference->type) {
+						case "input":
+							if (property_exists($element_data, "custom_regex") && !empty($element_data->custom_regex)) {
+								if (!preg_match($element_data->custom_regex, $input_value)) {
+									return $this->send_message("error", __($element_data->custom_error_message, "ezfc"), $fe_id);
+								}
+							}
+						break;
+
+						case "daterange":
+							if (!is_array($input_value)	||
+								!isset($input_value[0]) || !isset($input_value[1]) ||
+								!Ez_Functions::check_valid_date($options["datepicker_format"]->value, $input_value[0], true) ||
+								!Ez_Functions::check_valid_date($options["datepicker_format"]->value, $input_value[1], true)) {
+								return $this->send_message("error", __("Please enter a valid date range.", "ezfc"), $fe_id);
+							}
+						break;
+
 						case "email":
 							if (!filter_var($input_value, FILTER_VALIDATE_EMAIL)) {
 								return $this->send_message("error", __("Please enter a valid email address.", "ezfc"), $fe_id);
@@ -201,20 +231,6 @@ class Ezfc_frontend {
 							}
 						break;
 
-						case "numbers":
-							if (!filter_var($input_value, FILTER_VALIDATE_FLOAT)) {
-								return $this->send_message("error", __("Please enter a valid number.", "ezfc"), $fe_id);
-							}
-
-							// min / max values
-							if (!empty($element_data->min)) {
-								if ($input_value < $element_data->min) return $this->send_message("error", __("Minimum value: ", "ezfc") . $element_data->min , $fe_id);
-							}
-							if (!empty($element_data->max)) {
-								if ($input_value > $element_data->max) return $this->send_message("error", __("Maximum value: ", "ezfc") . $element_data->max , $fe_id);
-							}
-						break;
-
 						case "fileupload":
 							// yeah i know, this sucks :/
 							if ($element_data->required == 1) {
@@ -224,6 +240,20 @@ class Ezfc_frontend {
 								));
 
 								if (!$checkfile) return $this->send_message("error", __("No file was uploaded yet.", "ezfc"), $fe_id);
+							}
+						break;
+
+						case "numbers":
+							if (!is_numeric($input_value)) {
+								return $this->send_message("error", __("Please enter a valid number.", "ezfc"), $fe_id);
+							}
+
+							// min / max values
+							if (!empty($element_data->min)) {
+								if ($input_value < $element_data->min) return $this->send_message("error", __("Minimum value: ", "ezfc") . $element_data->min , $fe_id);
+							}
+							if (!empty($element_data->max)) {
+								if ($input_value > $element_data->max) return $this->send_message("error", __("Maximum value: ", "ezfc") . $element_data->max , $fe_id);
 							}
 						break;
 					}
@@ -347,8 +377,58 @@ class Ezfc_frontend {
 			)
 		);
 
+		$insert_id = $this->wpdb->insert_id;
+
 		if (!$res) return $this->send_message("error", __("Submission failed.", "ezfc"));
-		$this->debug("Successfully added submission to db: id={$this->wpdb->insert_id}");
+		$this->debug("Successfully added submission to db: id={$insert_id}");
+
+		// mailchimp integration
+		if ($this->submission_data["options"]["mailchimp_add"]->value == 1) {
+			// load mailchimp api wrapper
+			require_once(dirname( __FILE__ ) . "/lib/mailchimp/MailChimp.php");
+			$mailchimp_api_key = get_option("ezfc_mailchimp_api_key", -1);
+
+			if (!empty($mailchimp_api_key) && $mailchimp_api_key != -1) {
+				$mailchimp = new Drewm_MailChimp($mailchimp_api_key);
+				$mres = $mailchimp->call("lists/subscribe", array(
+					"id"    => $this->submission_data["options"]["mailchimp_list"]->value,
+					"email" => array("email" => $user_mail)
+				));
+
+				if (!$mres) {
+					$this->debug("Unable to add email address to MailChimp list.");
+				}
+				else {
+					$this->debug("Email address added to MailChimp list id={$this->submission_data["options"]["mailchimp_list"]->value}");
+				}
+			}
+		}
+
+		// add to cart
+		if (get_option("ezfc_woocommerce", 0) != 0 && get_option("ezfc_woocommerce_product_id", 0) != 0) {
+			$this->debug("Adding submission to WooCommerce cart...");
+
+			// this is required as anonymous users cannot add an ezfc product to the cart
+			if (!WC()->session->has_session()) {
+				WC()->session->set_customer_session_cookie(true);
+				$this->debug("WC session could not be found -> set customer session cookie");
+			}
+
+			$product_id = get_option("ezfc_woocommerce_product_id");
+
+			$cart_item_key = WC()->instance()->cart->add_to_cart($product_id, 1, 0, array(
+				"ezfc_id"      => $insert_id,
+				"ezfc_form"    => $id,
+				"ezfc_content" => $output_data["result"]
+			));
+
+			if (!$cart_item_key) {
+				return $this->send_message("error", __("Unable to add the product to the cart.", "ezfc"));
+			}
+			
+			$this->debug("Submission added to the cart successfully: cart_item_key={$cart_item_key}");
+			return $this->send_message("success", __(get_option("ezfc_woocommerce_text"), "ezfc"));
+		}
 
 		if ($send_mail) {
 			$this->send_mails(false, $output_data, $user_mail);
@@ -377,13 +457,7 @@ class Ezfc_frontend {
 		// output prefix
 		$out_pre = "
 		<html>
-		<head>
-			<meta charset='utf-8' />
-			<style type='text/css'>
-			table { width: 100%; max-width: 800px; border-collapse: collapse; }
-			tr, td { padding: 10px 5px; vertical-align: top; }
-			</style>
-		</head>
+		<head><meta charset='utf-8' /></head>
 		<body>";
 
 		// output suffix
@@ -411,11 +485,11 @@ class Ezfc_frontend {
 		if ($submission_data["options"]["email_show_total_price"]->value == 1) {
 			$out[] = "<tr style='margin: 5px 0; background-color: #eee; border-top: #aaa 1px solid; font-weight: bold;'>";
 			$out[] = "	<td colspan='2'>" . __("Total", "ezfc") . "</td>";
-			$out[] = "	<td style='text-align: right;'>{$currency} " .  number_format($total, 2) . "</td>";
+			$out[] = "	<td style='text-align: right;'>" .  $this->number_format($total) . "</td>";
 			$out[] = "</tr>";
 		}
 
-		$out[] = "<tr><td colspan='3'>Powered by <a href='http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb'>EZ Form Calculator</a></td></tr>";
+		$out[] = "<tr><td colspan='3'>Powered by <a href='http://codecanyon.net/item/ez-form-calculator-wordpress-plugin/7595334?ref=keksdieb'>ez Form Calculator</a></td></tr>";
 
 		$out[] = "</table>";
 
@@ -460,7 +534,7 @@ class Ezfc_frontend {
 		$replaces = array(
 			"files"  => $files_output,
 			"result" => $result_content,
-			"total"  => number_format($total, 2)
+			"total"  => $this->number_format($total)
 		);
 
 		foreach ($replaces as $replace => $replace_value) {
@@ -512,6 +586,10 @@ class Ezfc_frontend {
 		$element_values = property_exists($element, "value") ? $element->value : "";
 
 		switch ($element_type) {
+			case "numbers":
+				$value_out[] = $this->number_format($this->submission_data["raw_values"][$fe_id], $element);
+			break;
+
 			case "checkbox":
 				//$element_values = $this->array_index_key($element->options, "value");
 				$element_values = $element->options;
@@ -546,6 +624,11 @@ class Ezfc_frontend {
 				}
 			break;
 
+			case "daterange":
+				$value_out[] = __("From", "ezfc") . ":<br>" . $this->submission_data["raw_values"][$fe_id][0];
+				$value_out[] = __("To", "ezfc") . ":<br>" . $this->submission_data["raw_values"][$fe_id][1];
+			break;
+
 			case "email":
 				$value_out[] = "<a href='mailto:{$value}'>{$value}</a>";
 			break;
@@ -568,19 +651,41 @@ class Ezfc_frontend {
 			if (!is_array($value)) $value_array = array($value);
 			else                   $value_array = $value;
 
+			// counter value for dateranges so the calculating info will not be displayed twice
+			$daterange_counter = 0;
+
 			foreach ($value_array as $input_value) {
-				$tmp_total     = (double) $this->get_target_value_from_input($fe_id, $input_value);
-				$tmp_total_out = "{$currency} {$input_value}";
+				// skip second daterange input value
+				if ($element_type == "daterange" && $daterange_counter%2==1) continue;
+
+				// total price
+				$tmp_total = (double) $this->get_target_value_from_input($fe_id, $input_value);
+				// price details output
+				$tmp_total_out = array();
+				// show price for current element
+				$show_price = true;
 
 				// calculate value * factor
 				if (property_exists($element, "factor") && $value) {
 					if (empty($element->factor) || !is_numeric($element->factor)) $element->factor = 1;
 
-					$tmp_total = (double) $value * $element->factor;
-					$tmp_total_out = "{$value} * {$currency} " . number_format($element->factor, 2);
+					// special calculation for daterange element
+					if ($element_type == "daterange") {
+						$datepicker_format = $this->submission_data["options"]["datepicker_format"]->value;
+						$days = Ez_Functions::count_days_format($datepicker_format, $value[0], $value[1]);
+
+						$tmp_total = (double) $days * $element->factor;
+						$tmp_total_out[] = "= {$days} " . __("day(s)", "ezfc");
+
+						$show_price = false;
+						$daterange_counter++;
+					}
+					else {
+						$tmp_total = (double) $value * $element->factor;
+						$tmp_total_out[] = "{$value} * {$element->factor}";
+					}
 				}
 
-				$tmp_total_out = array();
 				// custom calculations
 				if (count($element->calculate) > 0) {
 					foreach ($element->calculate as $calc_index => $calc_array) {
@@ -598,7 +703,12 @@ class Ezfc_frontend {
 						if ($use_target_value || $use_custom_value) {
 							// use value from target element
 							if ($use_target_value) {
-								$target_value = $this->get_target_value_from_input($calc_array->target, $this->submission_data["raw_values"][$calc_array->target]);
+								if (isset($this->submission_data["raw_values"][$calc_array->target])) {
+									$target_value = $this->get_target_value_from_input($calc_array->target, $this->submission_data["raw_values"][$calc_array->target]);
+								}
+								else {
+									$target_value = 0;
+								}
 							}
 							// use custom value
 							else {
@@ -607,17 +717,17 @@ class Ezfc_frontend {
 
 							switch ($calc_array->operator) {
 								case "add":
-									$tmp_total_out[] = "{$tmp_total} + {$target_value}";
+									$tmp_total_out[] = "+ {$target_value}";
 									$tmp_total       = (double) $tmp_total + $target_value;
 								break;
 
 								case "subtract":
-									$tmp_total_out[] = "{$tmp_total} - {$target_value}";
+									$tmp_total_out[] = "- {$target_value}";
 									$tmp_total       = (double) $tmp_total - $target_value;
 								break;
 
 								case "multiply":
-									$tmp_total_out[] = "{$tmp_total} * {$target_value}";
+									$tmp_total_out[] = "* {$target_value}";
 									$tmp_total       = (double) $tmp_total * $target_value;
 								break;
 
@@ -629,11 +739,11 @@ class Ezfc_frontend {
 									else {
 										if (property_exists($element, "calculate_before") && $element->calculate_before == "1") {
 											$tmp_total_out[] = "{$target_value} / {$tmp_total}";
-											$tmp_total       = $target_value / (double) $tmp_total;
+											$tmp_total       = round($target_value / (double) $tmp_total, 2);
 										}
 										else {
 											$tmp_total_out[] = "{$tmp_total} / {$target_value}";
-											$tmp_total       = (double) $tmp_total / $target_value;
+											$tmp_total       = round((double) $tmp_total / $target_value, 2);
 										}
 									}
 								break;
@@ -652,7 +762,7 @@ class Ezfc_frontend {
 
 								case "power":
 									$tmp_total_out[] = "{$tmp_total} ^ {$target_value}";
-									$tmp_total       = pow((double) $tmp_total, $target_value);
+									$tmp_total       = round(pow((double) $tmp_total, $target_value), 2);
 								break;
 							}
 						}
@@ -685,27 +795,27 @@ class Ezfc_frontend {
 
 							switch ($discount->operator) {
 								case "add":
-									$tmp_total_out[] = __("Discount:") . " + {$currency} {$discount->discount_value}";
+									$tmp_total_out[] = __("Discount:") . " + " . $this->number_format($discount->discount_value, $element);
 									$discount_total  = $discount->discount_value;
 								break;
 
 								case "subtract":
-									$tmp_total_out[] = __("Discount:") . " - {$currency} {$discount->discount_value}";
+									$tmp_total_out[] = __("Discount:") . " - " . $this->number_format($discount->discount_value, $element);
 									$discount_total  = -$discount->discount_value;
 								break;
 
 								case "percent_add":
 									$tmp_total_out[] = __("Discount:") . " +{$discount->discount_value}%";
-									$discount_total  = $tmp_total * ($discount->discount_value / 100);
+									$discount_total  = round($tmp_total * ($discount->discount_value / 100), 2);
 								break;
 
 								case "percent_sub":
 									$tmp_total_out[] = __("Discount:") . " -{$discount->discount_value}%";
-									$discount_total  = -($tmp_total * ($discount->discount_value / 100));
+									$discount_total  = round(-($tmp_total * ($discount->discount_value / 100)), 2);
 								break;
 
 								case "equals":
-									$tmp_total_out[] = __("Discount:") . " = {$currency} {$discount->discount_value}";
+									$tmp_total_out[] = __("Discount:") . " = " . $this->number_format($discount->discount_value);
 									$discount_total  = 0;
 									// overwrite temporary price here
 									$tmp_total       = $discount->discount_value;
@@ -719,9 +829,15 @@ class Ezfc_frontend {
 				}
 
 				// build string for output
-				$value_out_str = !$tmp_total ? "-" : "$currency " . number_format($tmp_total, 2);
-				if ($tmp_total_out) {
-					$value_out_str = implode("<br>", $tmp_total_out) . "<br>= {$value_out_str}";
+				if ($show_price) {
+					$value_out_str = !$tmp_total ? "-" : $this->number_format($tmp_total);
+
+					if ($tmp_total_out) {
+						$value_out_str = implode("<br>", $tmp_total_out) . "<br>= {$value_out_str}";
+					}
+				}
+				else {
+					$value_out_str = implode("<br>", $tmp_total_out);
 				}
 
 				$total_out[] = $value_out_str;
@@ -743,20 +859,72 @@ class Ezfc_frontend {
 		);
 	}
 
+	function number_format($number, $element_data = null) {
+		if (empty($number)) return;
+		
+		// check if element value should not formatted as currency
+		if ($element_data) {
+			if (!property_exists($element_data, "is_currency") ||
+				(property_exists($element_data, "is_currency") && $element_data->is_currency == 0)) {
+				return $number;
+			}
+		}
+
+		$currency = $this->submission_data["options"]["currency"]->value;
+		$currency_position = $this->submission_data["options"]["currency_position"]->value;
+
+		// todo
+		$number_formatted = number_format($number, 2);
+
+		if ($currency_position == 0) {
+			return "{$currency} {$number_formatted}";
+		}
+		else {
+			return "{$number_formatted} {$currency}";
+		}
+	}
+
 	function get_target_value_from_input($target_id, $input_value) {
 		if (!isset($this->submission_data["form_elements"][$target_id])) return false;
 
-		$target = $this->submission_data["form_elements"][$target_id];
-		$data   = json_decode($target->data);
+		$target  = $this->submission_data["form_elements"][$target_id];
+		$value   = 0;
+
+		$data    = json_decode($target->data);
+		$element = $this->submission_data["elements"][$target->e_id]->type;
 
 		if (property_exists($data, "options") && is_array($data->options)) {
 			// checkboxes
-			if (is_array($input_value)) return false;
+			if (is_array($input_value)) {
+				if (count($input_value) < 1) return 0;
+
+				// iterate through all checkboxes
+				$checkbox_total = 0;
+				foreach ($input_value as $i => $checkbox_value) {
+					// checkbox index was not found
+					if (!array_key_exists($i, $data->options)) return 0;
+
+					$checkbox_total += (float) $data->options[$i]->value;
+				}
+
+				return $checkbox_total;
+			}
 			
 			if (!array_key_exists($input_value, $data->options)) return false;
 			if (!property_exists($data->options[$input_value], "value")) return false;
 
 			$value = $data->options[$input_value]->value;
+		}
+		else if ($element == "daterange") {
+			$datepicker_format = $this->submission_data["options"]["datepicker_format"]->value;
+
+			if (isset($input_value[0]) && isset($input_value[1])) {
+				$days = Ez_Functions::count_days_format($datepicker_format, $input_value[0], $input_value[1]);
+				$value = $days;
+			}
+			else {
+				$value = 0;
+			}
 		}
 		else {
 			$value = $this->submission_data["raw_values"][$target_id];
@@ -806,6 +974,12 @@ class Ezfc_frontend {
 
 		$this->debug("Target email: $user_mail");
 
+		// use smtp
+		$use_smtp = get_option("ezfc_email_smtp_enabled")==1 ? true : false;
+		if ($use_smtp) {
+			$this->smtp_setup();
+		}
+
 		// admin mail
 		if (!empty($this->submission_data["options"]["email_recipient"]->value)) {
 			$mail_admin_headers   = array();
@@ -813,14 +987,25 @@ class Ezfc_frontend {
 
 			if ($user_mail && !empty($user_mail)) {
 				$mail_admin_headers[] = "Reply-to: \"{$user_mail}\"";
+
+				if ($use_smtp) $this->smtp->addReplyTo($user_mail);
 			}
 
-			$res = wp_mail(
-				$this->submission_data["options"]["email_recipient"]->value,
-				__($this->submission_data["options"]["email_admin_subject"]->value, "ezfc"),
-				nl2br($mail_output["admin"]),
-				$mail_admin_headers
-			);
+			// smtp
+			if ($use_smtp) {
+				$this->smtp->addAddress($this->submission_data["options"]["email_recipient"]->value);
+				$this->smtp->Subject = __($this->submission_data["options"]["email_admin_subject"]->value, "ezfc");
+				$this->smtp->Body    = nl2br($mail_output["admin"]);
+				$res = $this->smtp->send() ? 1 : 0;
+			}
+			else {
+				$res = wp_mail(
+					$this->submission_data["options"]["email_recipient"]->value,
+					__($this->submission_data["options"]["email_admin_subject"]->value, "ezfc"),
+					nl2br($mail_output["admin"]),
+					$mail_admin_headers
+				);
+			}
 
 			$this->debug("Email delivery to admin: $res");
 			$this->debug(var_export($mail_admin_headers, true));
@@ -839,12 +1024,30 @@ class Ezfc_frontend {
 			$mail_headers[] = "Content-type: text/html";
 			$mail_headers[] = "From: {$mail_from}";
 
-			$res = wp_mail(
-				$user_mail,
-				__($mail_subject, "ezfc"),
-				nl2br($mail_output["user"]),
-				$mail_headers
-			);
+			// smtp
+			if ($use_smtp) {
+				// Convert syntax: Name <hello@ezplugins.de>
+				$mail_from_array = explode("<", $mail_from);
+				if (count($mail_from_array) > 1) {
+					$mail_from_address    = str_replace(">", "", $mail_from_array[1]);
+					$this->smtp->From     = $mail_from_address;
+					$this->smtp->FromName = trim($mail_from_array[0]);
+				}
+
+				$this->smtp->addAddress($user_mail);
+				$this->smtp->Subject = $mail_subject;
+				$this->smtp->Body    = nl2br($mail_output["user"]);
+
+				$res = $this->smtp->send() ? 1 : 0;
+			}
+			else {
+				$res = wp_mail(
+					$user_mail,
+					__($mail_subject, "ezfc"),
+					nl2br($mail_output["user"]),
+					$mail_headers
+				);
+			}
 
 			$this->debug("Email delivery to user: $res");
 			$this->debug(var_export($mail_headers, true));
@@ -874,7 +1077,7 @@ class Ezfc_frontend {
 		$options  = $this->array_index_key($this->form_get_options($form->id), "name");
 		$theme    = $this->get_theme($options["theme"]->value);
 
-		require_once(plugin_dir_path(__FILE__)."lib/recaptcha-php-1.11/recaptchalib.php");
+		require_once(plugin_dir_path(__FILE__) . "lib/recaptcha-php-1.11/recaptchalib.php");
 		$publickey = get_option("ezfc_captcha_public");
 
 		// frontend output
@@ -920,12 +1123,12 @@ class Ezfc_frontend {
 		// custom css
 		$custom_css = get_option("ezfc_custom_css");
 		if (!empty($custom_css)) {
-			$html .= "<style type='text/css'>{$custom_css}</style>";
+			$html .= $this->remove_nl("<style type='text/css'>{$custom_css}</style>");
 		}
 
-		$html .= "<div class='ezfc-wrapper {$form_class}'>";
+		$html .= "<div class='ezfc-wrapper'>";
 		// adding "novalidate" is essential since required fields can be hidden due to conditional logic
-		$html .= "<form class='{$form_class} ezfc-form' name='ezfc-form[{$form->id}]' action='' data-id='{$form->id}' data-currency='{$options["currency"]->value}' novalidate>";
+		$html .= "<form class='ezfc-form {$form_class}' name='ezfc-form[{$form->id}]' action='' data-id='{$form->id}' data-currency='{$options["currency"]->value}' novalidate>";
 
 		// reference
 		$html .= "<input type='hidden' name='id' value='{$form->id}'>";
@@ -1001,9 +1204,9 @@ class Ezfc_frontend {
 
 			if (property_exists($data, "calculate") && count($data->calculate) > 0) {
 				foreach ($data->calculate as $calculate) {
-					$data_calculate_output["operators"][] = $calculate->operator;
-					$data_calculate_output["targets"][]   = $calculate->target;
-					$data_calculate_output["values"][]    = $calculate->value;
+					$data_calculate_output["operators"][] = property_exists($calculate, "operator") ? $calculate->operator : "";
+					$data_calculate_output["targets"][]   = property_exists($calculate, "target") ? $calculate->target : "";
+					$data_calculate_output["values"][]    = property_exists($calculate, "value") ? $calculate->value : "";
 				}
 
 				$data_calculate .= "
@@ -1077,7 +1280,10 @@ class Ezfc_frontend {
 			$show_price = "";
 
 			// hidden?
-			if (property_exists($data, "hidden") && $data->hidden == 1) $element_css .= " ezfc-hidden";
+			if (property_exists($data, "hidden")) {
+				if ($data->hidden == 1) $element_css .= " ezfc-hidden";
+				elseif ($data->hidden == 2) $element_css .= " ezfc-hidden ezfc-custom-hidden";
+			}
 
 			// factor
 			$data_factor = "";
@@ -1141,17 +1347,21 @@ class Ezfc_frontend {
 					$el_label .= "<label class='ezfc-label' for='{$el_id}' {$css_label_width}>" . __($el_data_label, "ezfc") . "{$required_char}</label>";
 					$el_text .= "<select class='{$data->class} ezfc-element ezfc-element-select' name='{$el_name}' {$required}>";
 
-					foreach ($data->options as $n=>$option) {
-						$el_preselect = "";
+					foreach ($data->options as $n => $option) {
+						$add_data = "";
 						if (property_exists($data, "preselect")) {
-							$el_preselect = $data->preselect==$n ? "selected='selected'" : "";
+							$add_data = $data->preselect==$n ? "selected='selected'" : "";
+						}
+
+						if (property_exists($option, "disabled")) {
+							$add_data .= " disabled";
 						}
 
 						if ($options["show_element_price"]->value == 1) {
 							$show_price = " ({$options["currency"]->value}{$option->value})";
 						}
 
-						$el_text .= "<option value='{$n}' data-value='{$option->value}' data-initvalue='{$n}' data-factor='{$option->value}' {$el_preselect}>{$option->text}{$show_price}</option>";
+						$el_text .= "<option value='{$n}' data-value='{$option->value}' data-initvalue='{$n}' data-factor='{$option->value}' {$add_data}>{$option->text}{$show_price}</option>";
 					}
 
 					$el_text .= "</select>";
@@ -1163,9 +1373,13 @@ class Ezfc_frontend {
 					$el_text .= "<div class='ezfc-element ezfc-element-radio-container'>";
 
 					foreach ($data->options as $n=>$radio) {
-						$el_preselect = "";
+						$add_data = "";
 						if (property_exists($data, "preselect")) {
-							$el_preselect = $data->preselect==$n ? "checked='checked'" : "";
+							$add_data = $data->preselect==$n ? "checked='checked'" : "";
+						}
+
+						if (property_exists($radio, "disabled")) {
+							$add_data .= " disabled";
 						}
 
 						if ($options["show_element_price"]->value == 1) {
@@ -1173,7 +1387,7 @@ class Ezfc_frontend {
 						}
 
 						$el_text .= "<div class='ezfc-element-radio'>";
-						$el_text .= "	<input class='{$data->class} ezfc-element-radio-input' type='radio' name='{$el_name}' value='{$n}' data-value='{$radio->value}' data-initvalue='{$n}' data-factor='{$radio->value}' {$el_preselect}>{$radio->text}{$show_price}";
+						$el_text .= "	<input class='{$data->class} ezfc-element-radio-input' type='radio' name='{$el_name}' value='{$n}' data-value='{$radio->value}' data-initvalue='{$n}' data-factor='{$radio->value}' {$add_data}>{$radio->text}{$show_price}";
 						$el_text .= "</div>";
 					}
 
@@ -1193,9 +1407,13 @@ class Ezfc_frontend {
 						// use different names due to multiple choices
 						$el_name = "ezfc_element[{$element->id}][$n]";
 
-						$el_preselect = "";
+						$add_data = "";
 						if (in_array((string) $n, $preselect_values)) {
-							$el_preselect = "checked='checked'";
+							$add_data = "checked='checked'";
+						}
+
+						if (property_exists($checkbox, "disabled")) {
+							$add_data .= " disabled";
 						}
 
 						if ($options["show_element_price"]->value == 1) {
@@ -1203,7 +1421,7 @@ class Ezfc_frontend {
 						}
 
 						$el_text .= "<div class='ezfc-element-checkbox'>";
-						$el_text .= "	<input class='{$data->class} ezfc-element-checkbox-input' type='checkbox' name='{$el_name}' value='{$n}' data-value='{$checkbox->value}' data-initvalue='{$n}' data-factor='{$checkbox->value}' {$el_preselect}>{$checkbox->text}{$show_price}";
+						$el_text .= "	<input class='{$data->class} ezfc-element-checkbox-input' type='checkbox' name='{$el_name}' value='{$n}' data-value='{$checkbox->value}' data-initvalue='{$n}' data-factor='{$checkbox->value}' {$add_data}>{$checkbox->text}{$show_price}";
 						$el_text .= "</div>";
 					}
 
@@ -1213,6 +1431,40 @@ class Ezfc_frontend {
 				case "datepicker":
 					$el_label .= "<label class='ezfc-label' for='{$el_id}' {$css_label_width}>" . __($el_data_label, "ezfc") . "{$required_char}</label>";
 					$el_text .= "<input class='{$data->class} ezfc-element ezfc-element-input ezfc-element-datepicker' type='text' name='{$el_name}' {$data_value_external} value='{$data->value}' placeholder='{$data->placeholder}' {$required} />";
+				break;
+
+				case "daterange":
+					$placeholder = explode(";;", $data->placeholder);
+					$placeholder_values = array(
+						isset($placeholder[0]) ? $placeholder[0] : "",
+						isset($placeholder[1]) ? $placeholder[1] : ""
+					);
+
+					// mindate
+					$minDate = explode(";;", $data->minDate);
+					$minDate_values = array(
+						isset($minDate[0]) ? $minDate[0] : "",
+						isset($minDate[1]) ? $minDate[1] : ""
+					);
+					// maxdate
+					$maxDate = explode(";;", $data->maxDate);
+					$maxDate_values = array(
+						isset($maxDate[0]) ? $maxDate[0] : "",
+						isset($maxDate[1]) ? $maxDate[1] : ""
+					);
+
+					$el_label .= "<label class='ezfc-label' for='{$el_id}' {$css_label_width}>" . __($el_data_label, "ezfc") . "{$required_char}</label>";
+
+					// element needs an additional container class
+					$el_text .= "<div class='ezfc-element-daterange-container' data-factor='{$data->factor}'>";
+
+					// from
+					$el_text .= "<input class='{$data->class} ezfc-element ezfc-element-input ezfc-element-daterange ezfc-element-daterange-from' type='text' {$data_factor} name='{$el_name}[0]' {$data_value_external} data-mindays='{$data->minDays}' placeholder='{$placeholder_values[0]}' data-mindate='{$minDate_values[0]}' data-maxdate='{$maxDate_values[0]}' {$required} />";
+					// to
+					$el_text .= "<input class='{$data->class} ezfc-element ezfc-element-input ezfc-element-daterange ezfc-element-daterange-to' type='text' {$data_factor} name='{$el_name}[1]' {$data_value_external} data-mindays='{$data->minDays}' placeholder='{$placeholder_values[1]}' data-mindate='{$minDate_values[1]}' data-maxdate='{$maxDate_values[1]}' {$required} />";
+
+					
+					$el_text .= "</div>";
 				break;
 
 				case "timepicker":
@@ -1267,7 +1519,15 @@ class Ezfc_frontend {
 				case "subtotal":
 					$el_label .= "<label class='ezfc-label' for='{$el_id}' {$css_label_width}>" . __($el_data_label, "ezfc") . "{$required_char}</label>";
 					
-					$el_text .= "<input class='{$data->class} ezfc-element ezfc-element-input ezfc-element-subtotal' type='text' name='{$el_name}' value='' />";
+					$el_type = "text";
+					if (property_exists($data, "text_only") && $data->text_only == 1) {
+						$el_type  = "hidden";
+						$el_value = isset($value) ? $value : "";
+
+						$el_text .= "<span class='ezfc-text'>{$el_value}</span>";
+					}
+
+					$el_text .= "<input class='{$data->class} ezfc-element ezfc-element-input ezfc-element-subtotal' type='{$el_type}' name='{$el_name}' value='' />";
 				break;
 
 				case "stepstart":
@@ -1311,6 +1571,8 @@ class Ezfc_frontend {
 			if (property_exists($data, "columns")) $element_css .= " ezfc-column ezfc-col-{$data->columns}";
 
 			if (!$step) {
+				$element_css .= " ezfc-element-wrapper-{$elements[$element->e_id]->type}";
+				
 				$html .= "<div class='{$element_css}' id='{$el_id}' data-element='{$elements[$element->e_id]->type}' {$data_calculate} {$data_value_external}>{$el_text}</div>";
 			}
 			else {
@@ -1380,13 +1642,38 @@ class Ezfc_frontend {
 		$form_options_js = json_encode(array(
 			"currency_position" => $options["currency_position"]->value,
 			"datepicker_format" => $options["datepicker_format"]->value,
-			"timepicker_format" => $options["timepicker_format"]->value,
-			"hide_all_forms"    => isset($options["hide_all_forms"]) ? $options["hide_all_forms"]->value : 0,
-			"redirect_url"      => trim($options["redirect_url"]->value)
+			"hide_all_forms"    => !empty($options["hide_all_forms"]) ? $options["hide_all_forms"]->value : 0,
+			"price_format"      => !empty($options["price_format"])   ? $options["price_format"]->value   : get_option("ezfc_price_format"),
+			"redirect_url"      => trim($options["redirect_url"]->value),
+			"timepicker_format" => $options["timepicker_format"]->value
 		));
-		echo "<script>ezfc_form_vars[{$form->id}] = {$form_options_js};</script>";
+
+		$html .= "<script>ezfc_form_vars[{$form->id}] = {$form_options_js};</script>";
 
 		return $html;
+	}
+
+	function insert_file($f_id, $ref_id, $file) {
+		// insert into db
+		$res = $this->wpdb->insert(
+			$this->tables["files"],
+			array(
+				"f_id"   => $f_id,
+				"ref_id" => $ref_id,
+				"url"    => $file["url"],
+				"file"   => $file["file"]
+			),
+			array(
+				"%d",
+				"%s",
+				"%s",
+				"%s"
+			)
+		);
+
+		if (!$res) return $this->send_message("error", __("File entry failed.", "ezfc"));
+
+		return $this->send_message("success", __("File entry saved.", "ezfc"));
 	}
 
 	function get_theme($id) {
@@ -1449,5 +1736,19 @@ class Ezfc_frontend {
 			$type => $msg,
 			"id"  => $id
 		);
+	}
+
+	function smtp_setup() {
+		require_once(plugin_dir_path(__FILE__) . "lib/PHPMailer/PHPMailerAutoload.php");
+
+		$this->smtp = new PHPMailer();
+		$this->smtp->isSMTP();
+		$this->smtp->SMTPAuth   = true;
+		$this->smtp->Host       = get_option("ezfc_email_smtp_host");
+		$this->smtp->Username   = get_option("ezfc_email_smtp_user");
+		$this->smtp->Password   = get_option("ezfc_email_smtp_pass");
+		$this->smtp->Port       = get_option("ezfc_email_smtp_port");
+		$this->smtp->SMTPSecure = get_option("ezfc_email_smtp_secure");
+		$this->smtp->isHTML(true);
 	}
 }

@@ -19,11 +19,10 @@ CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_elements` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT COLLATE="utf8_general_ci";
 
 INSERT INTO `__PREFIX__ezfcf_elements` (`id`, `name`, `description`, `type`, `data`, `icon`, `category`) VALUES
-  (1, 'Input', 'Basic input field with no restrictions', 'input', '{\r\n  "name": "Input",\r\n  "label": "Text",\r\n  "required": 0,\r\n  "value": "",\r\n  "value_external": "",\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-pencil-square-o', 'basic'),
+  (1, 'Input', 'Basic input field with no restrictions', 'input', '{\r\n  "name": "Input",\r\n  "label": "Text",\r\n  "required": 0,\r\n  "value": "",\r\n  "value_external": "",\r\n  "custom_regex": "",\r\n  "custom_error_message": "",\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-pencil-square-o', 'basic'),
   (2, 'Email', 'Email input field', 'email', '{\r\n "name": "Email",\r\n  "label": "Email",\r\n  "required": 0,\r\n  "use_address": 1,\r\n  "double_check": 0,\r\n  "value": "",\r\n  "value_external": "",\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-envelope-o', 'basic'),
   (3, 'Textfield', 'Large text field', 'textfield', '{\r\n  "name": "Textfield",\r\n  "label": "Textfield",\r\n "required": 0,\r\n  "value": "",\r\n  "value_external": "",\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-align-justify', 'basic'),
-  (7, 'Numbers', 'Numbers only', 'numbers', '{\r\n  "name": "Numbers",\r\n  "label": "Numbers",\r\n "required": 0,\r\n  "calculate_enabled": 1,\r\n "factor": "",\r\n "value": "",\r\n  "value_external": "",\r\n  "min": "0",\r\n "max": "100",\r\n "slider": 0,\r\n "steps_slider": 1,\r\n "spinner": 0,\r\n "steps_spinner": 1,\r\n "calculate": [{"operator":"","target":0,"value":""}],\r\n  "overwrite_price": 0,\r\n "calculate_before": 0,\r\n "conditional":[{"action":"","target":0,"operator":"","value":""}],\r\n  "discount":[{"range_min":"","range_max":"","operator":"","discount_value":""}],\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-html5', 'calc');
-
+  (7, 'Numbers', 'Numbers only', 'numbers', '{\r\n  "name": "Numbers",\r\n  "label": "Numbers",\r\n  "required": 0,\r\n  "calculate_enabled": 1,\r\n  "is_currency": 1,\r\n  "factor": "",\r\n  "value": "",\r\n  "value_external": "",\r\n  "min": "0",\r\n  "max": "100",\r\n  "slider": 0,\r\n  "steps_slider": 1,\r\n  "spinner": 0,\r\n  "steps_spinner": 1,\r\n  "calculate": [{"operator":"","target":0,"value":""}],\r\n  "overwrite_price": 0,\r\n  "calculate_before": 0,\r\n  "conditional":[{"action":"","target":0,"operator":"","value":""}],\r\n  "discount":[{"range_min":"","range_max":"","operator":"","discount_value":""}],\r\n  "placeholder": "",\r\n  "class": "",\r\n  "hidden": 0,\r\n  "columns": 6\r\n}', 'fa-html5', 'calc');
 
 CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_forms` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -93,7 +92,8 @@ INSERT IGNORE INTO `__PREFIX__ezfcf_options` (`id`, `name`, `value`, `descriptio
   (30, 'mailchimp_add', '1', 'Enable MailChimp', 'Enable MailChimp integration', 'yesno', 'Email'),
   (31, 'mailchimp_list', '', 'Mailchimp list', 'Email addresses will be added to this list upon form submission.', 'mailchimp_list', 'Email'),
   (32, 'hide_all_forms', '0', 'Hide all forms on submission', 'If this option is set to "yes", all forms on the relevant page will be hidden upon submission (useful for product comparisons).', 'yesno', 'Form'),
-  (33, 'timepicker_format', 'H:i', 'See <a href="http://php.net/manual/en/function.date.php" target="_blank">php.net</a> for time formats', '', '', 'Layout');
+  (33, 'timepicker_format', 'H:i', 'See <a href="http://php.net/manual/en/function.date.php" target="_blank">php.net</a> for time formats', '', '', 'Layout'),
+  (34, 'price_format', '', 'Price format', 'If left blank, the global price format will be used. See <a href="http://numeraljs.com/" target="_blank">numeraljs.com</a> for syntax documentation', '', 'Form');
 
 
 CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_submissions` (
@@ -121,14 +121,13 @@ CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_templates` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT COLLATE="utf8_general_ci";
 
-
 CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_files` (
-	`id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-	`f_id` INT(10) UNSIGNED NOT NULL,
-	`ref_id` VARCHAR(16) NOT NULL,
-	`url` VARCHAR(2048) NOT NULL,
-	`file` VARCHAR(2048) NOT NULL,
-	PRIMARY KEY (`id`)
+  `id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `f_id` INT(10) UNSIGNED NOT NULL,
+  `ref_id` VARCHAR(16) NOT NULL,
+  `url` VARCHAR(2048) NOT NULL,
+  `file` VARCHAR(2048) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT COLLATE="utf8_general_ci";
 
 CREATE TABLE IF NOT EXISTS `__PREFIX__ezfcf_themes` (

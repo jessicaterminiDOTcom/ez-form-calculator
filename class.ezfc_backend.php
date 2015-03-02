@@ -1,7 +1,5 @@
 <?php
 
-require_once("class.ez_functions.php");
-
 class Ezfc_backend {
 	function __construct() {
 		global $wpdb;
@@ -23,7 +21,7 @@ class Ezfc_backend {
 	}
 
 	function get_debug_log() {
-		$res = $this->wpdb->get_results("SELECT * FROM {$this->tables["debug"]}");
+		$res = $this->wpdb->get_results("SELECT * FROM {$this->tables["debug"]} ORDER BY id DESC LIMIT 500");
 
 		if (count($res) < 1) return "No debug logs found.";
 
@@ -49,18 +47,18 @@ class Ezfc_backend {
 		);
 	}
 
-	/**
-		forms
-	**/
 	function form_get_count() {
 		$res = $this->wpdb->get_var("SELECT count(*) FROM {$this->tables["forms"]}");
 
 		return $res;
 	}
 
+	/**
+		forms
+	**/
 	function form_add($template_id=0, $import_data=false) {
-		if ($this->form_get_count() >= 1) return;
-		
+		if ($this->form_get_count() >= 1) return $this->send_message("error", __("Only 1 form per site allowed in the free version", "ezfc"));
+
 		$form_name = __("New form", "ezfc");
 
 		if ($import_data) {
@@ -230,33 +228,14 @@ class Ezfc_backend {
 	}
 
 	function form_duplicate($id) {
-		$id = (int) $id;
-		$new_form_id = $this->form_add();
-
-		$queries = array();
-
-		// form elements
-		$queries[] = $this->wpdb->prepare("CREATE TEMPORARY TABLE {$this->tables["tmp"]} SELECT * FROM {$this->tables["forms_elements"]} WHERE f_id=%d;", $id);
-		$queries[] = "ALTER TABLE {$this->tables["tmp"]} DROP id;";
-		$queries[] = $this->wpdb->prepare("UPDATE {$this->tables["tmp"]} SET f_id=%d;", $new_form_id);
-		$queries[] = "INSERT INTO {$this->tables["forms_elements"]} SELECT 0, {$this->tables["tmp"]}.* FROM {$this->tables["tmp"]};";
-		$queries[] = "DROP TEMPORARY TABLE IF EXISTS {$this->tables["tmp"]};";
-
-		// form options
-		$queries[] = $this->wpdb->prepare("CREATE TEMPORARY TABLE {$this->tables["tmp"]} SELECT * FROM {$this->tables["forms_options"]} WHERE f_id=%d;", $id);
-		$queries[] = $this->wpdb->prepare("UPDATE {$this->tables["tmp"]} SET f_id=%d;", $new_form_id);
-		$queries[] = "REPLACE INTO {$this->tables["forms_options"]} SELECT * FROM {$this->tables["tmp"]};";
-		$queries[] = "DROP TEMPORARY TABLE IF EXISTS {$this->tables["tmp"]};";
-
-
-		foreach ($queries as $i=>$q) {
-			$tmpres = $this->wpdb->query($q);
-
-			if ($tmpres === false) {
-				return $this->send_message("error", "Error in duplicating form: {$this->wpdb->last_error}");
-			}
-		}
-
+		// get import data
+		$form_data = $this->form_get_export_data(null, $id);
+		// convert objects
+		$form_object = json_decode(json_encode($form_data));
+		// add form
+		$new_form_id = $this->form_add(0, $form_object);
+		
+		// get form data
 		$ret = array(
 			"elements" => $this->form_elements_get($new_form_id),
 			"form"     => $this->form_get($new_form_id),
@@ -325,7 +304,7 @@ class Ezfc_backend {
 	function form_import($import_data) {
 		$new_form_id = $this->form_add(null, $import_data);
 
-		$this->add_missing_element_options();
+		$this->add_missing_element_options($new_form_id);
 
 		$ret = array(
 			"elements" => $this->form_elements_get($new_form_id),
@@ -511,7 +490,7 @@ class Ezfc_backend {
 				array(
 					"f_id"  => $id,
 					"o_id"  => $o_id,
-					"value" => $value
+					"value" => stripslashes($value)
 				),
 				array(
 					"%d",
@@ -578,7 +557,7 @@ class Ezfc_backend {
 	function form_element_add($f_id, $e_id, $data=null, $e_position=null) {
 		$form_elements = $this->form_elements_get($f_id);
 		if (count($form_elements) >= 5) return $this->send_message("error", __("Only 5 elements allowed in the free version."));
-		
+
 		// default data
 		if (!$data) {
 			$default_data = $this->wpdb->get_var($this->wpdb->prepare(
@@ -630,6 +609,18 @@ class Ezfc_backend {
 		);
 
 		return $this->send_message("success", __("Element deleted.", "ezfc"));
+	}
+
+	function form_element_duplicate($id) {
+		$id = (int) $id;
+
+		$element = $this->form_element_get($id);
+		if (!$element) {
+			return $this->send_message("error", __("Failed to duplicate element.", "ezfc"));
+		}
+
+		$new_element_id = $this->form_element_add($element->f_id, $element->e_id, $element->data);
+		return $this->form_element_get($new_element_id);
 	}
 
 	function form_elements_save($id, $data) {
@@ -712,7 +703,7 @@ class Ezfc_backend {
 		foreach ($settings as $o_id=>$value) {
 			$res = $this->wpdb->update(
 				$this->tables["options"],
-				array("value" => $value),
+				array("value" => stripslashes($value)),
 				array("id" => $o_id),
 				array("%s"),
 				array("%d")
@@ -727,7 +718,7 @@ class Ezfc_backend {
 
 			$res = $this->wpdb->update(
 				$this->tables["forms_options"],
-				array("value" => $value),
+				array("value" => stripslashes($value)),
 				array("o_id" => $o_id),
 				array("%s"),
 				array("%d")
@@ -1000,7 +991,54 @@ class Ezfc_backend {
 		return 1;
 	}
 
+	/**
+		test mail
+	**/
+	public function send_test_mail($recipient) {
+		$subject = __("ez Form Calculator Test Email", "ezfc");
+		$text    = __("This is a test email sent by ez Form Calculator.", "ezfc");
 
+		// use smtp
+		if (get_option("ezfc_email_smtp_enabled") == 1) {
+			require_once(plugin_dir_path(__FILE__) . "lib/PHPMailer/PHPMailerAutoload.php");
+
+			$mail = new PHPMailer();
+			$mail->isSMTP();
+			$mail->SMTPAuth   = true;
+			//$mail->SMTPDebug  = 3;
+			$mail->Host       = get_option("ezfc_email_smtp_host");
+			$mail->Username   = get_option("ezfc_email_smtp_user");
+			$mail->Password   = get_option("ezfc_email_smtp_pass");
+			$mail->Port       = get_option("ezfc_email_smtp_port");
+			$mail->SMTPSecure = get_option("ezfc_email_smtp_secure");
+
+			$mail->addAddress($recipient);
+			$mail->Subject = $subject;
+			$mail->Body    = $text;
+
+			if ($mail->send()) {
+				$res = __("Mail successfully sent.", "ezfc");
+			}
+			else {
+				$res = __("Unable to send mails: ", "ezfc") . $mail->ErrorInfo;
+			}
+
+			return $res;
+		}
+		else {
+			$res = wp_mail(
+				$recipient,
+				$subject,
+				$text
+			);
+
+			return $res==1 ? __("Mail successfully sent.", "ezfc") : __("Unable to send mails.", "ezfc");
+		}
+	}
+
+	/**
+		ajax message
+	**/
 	function send_message($type, $msg, $id=0) {
 		return array(
 			$type 	=> $msg,

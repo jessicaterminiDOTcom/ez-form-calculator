@@ -2,8 +2,8 @@
 
 global $wpdb;
 
-require_once("class.ez_functions.php");
-require_once("class.ezfc_backend.php");
+require_once(plugin_dir_path(__FILE__) . "class.ez_functions.php");
+require_once(plugin_dir_path(__FILE__) . "class.ezfc_backend.php");
 $ezfc = new Ezfc_backend();
 
 parse_str($_REQUEST["data"], $data);
@@ -22,6 +22,11 @@ if (!wp_verify_nonce($nonce, "ezfc-nonce")) {
 **/
 switch ($action) {
 	case "form_add":
+		if ($ezfc->form_get_count() >= 1) {
+			send_ajax(array("error", __("Only 1 form per site allowed in the free version", "ezfc")));
+			die();
+		}
+
 		$new_form_id = $ezfc->form_add($id);
 
 		$ret = array(
@@ -183,6 +188,10 @@ switch ($action) {
 
 	case "form_element_delete":
 		send_ajax($ezfc->form_element_delete($id));
+	break;
+
+	case "form_element_duplicate":
+		send_ajax($ezfc->form_element_duplicate($id));
 	break;
 }
 

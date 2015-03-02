@@ -7,8 +7,8 @@ if (get_option("ezfc_debug_mode", 0) == 1) {
 	@ini_set("display_errors", "On");
 }
 
-require_once("class.ezfc_frontend.php");
-require_once("lib/recaptcha-php-1.11/recaptchalib.php");
+require_once(plugin_dir_path(__FILE__) . "class.ezfc_frontend.php");
+require_once(plugin_dir_path(__FILE__) . "lib/recaptcha-php-1.11/recaptchalib.php");
 
 $privatekey = get_option("ezfc_captcha_private");
 $ezfc = new Ezfc_frontend();
@@ -76,7 +76,33 @@ if (isset($form_options["min_submit_value"])) {
 	}
 }
 
-send_ajax($ezfc->insert($id, $data["ezfc_element"], $data["ref_id"]));
+// check if form uses paypal
+if ($form_options["pp_enabled"]->value == 1 || $force_paypal) {
+	if (session_id() == '') {
+	    session_start();
+	}
+	$_SESSION["Payment_Amount"] = $ezfc->get_total($data["ezfc_element"]);
+
+	require_once(plugin_dir_path(__FILE__) . "lib/paypal/expresscheckout.php");
+	$ret = Ezfc_paypal::checkout();
+
+	// paypal error :(
+	if (isset($ret["error"])) {
+		send_ajax(array($ret));
+		die();
+	}
+
+	// insert submission details
+	$ezfc->insert($id, $data["ezfc_element"], $data["ref_id"], false, array("id" => 1, "transaction_id" => "", "token" => $ret["token"]));
+
+	send_ajax(array(
+		"paypal" => $ret["url"]
+	));
+}
+else {
+	// insert into db
+	send_ajax($ezfc->insert($id, $data["ezfc_element"], $data["ref_id"]));
+}
 
 die();
 
